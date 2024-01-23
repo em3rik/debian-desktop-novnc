@@ -1,5 +1,5 @@
 ### debian-desktop-novnc
-Debian Slim based Docker image with XFCE, noVNC Firefox and Chrome installed
+Debian Slim based Docker image with XFCE, noVNC Firefox and Chromium installed
 
 ### Build the docker image
 ```
