@@ -1,57 +1,53 @@
 FROM debian:stable-slim
 
-# Install xfce desktop environment, necessary tools, Xorg, dbus, Firefox, Chromium, and Epiphany
+# Install xfce desktop, TigerVNC, websockify deps, and browsers
 RUN apt-get update && apt-get install -y \
-    xfce4 xfce4-terminal curl wget xvfb \
-    procps net-tools tigervnc-standalone-server \
-    dbus-x11 python3-numpy xorg xserver-xorg-video-dummy dbus \
-    firefox-esr chromium dillo lynx \
-    htop && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    xfce4 xfce4-terminal \
+    curl wget procps net-tools \
+    tigervnc-standalone-server \
+    dbus-x11 python3 \
+    firefox-esr chromium \
+    lsof htop \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set BROWSER environment variable to default to Firefox
+# Default browser override via env var
 ENV BROWSER=/usr/bin/firefox-esr
 
-# Set VNC_NO_PASSWORD environment variable
-ENV VNC_NO_PASSWORD=1
+# VNC starting resolution (changeable at runtime via resize=remote)
+ENV VNC_RESOLUTION=1920x1080
+ENV VNC_DEPTH=24
 
-# Create the novnc directory
-RUN mkdir -p /usr/share/novnc && \
-    mkdir -p /usr/share/novnc/utils && \
-    mkdir -p /usr/share/novnc/utils/websockify
+# Install noVNC (latest stable) and websockify
+RUN mkdir -p /usr/share/novnc/utils/websockify
 
-# Install noVNC
-RUN curl -Ls https://github.com/novnc/noVNC/archive/v1.2.0.tar.gz | tar xz --strip 1 -C /usr/share/novnc && \
-    curl -Ls https://github.com/novnc/websockify/archive/v0.10.0.tar.gz | tar xz --strip 1 -C /usr/share/novnc/utils/websockify && \
-    ln -s /usr/share/novnc/vnc_lite.html /usr/share/novnc/index.html
+RUN curl -Ls https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
+    | tar xz --strip 1 -C /usr/share/novnc && \
+    curl -Ls https://github.com/novnc/websockify/archive/refs/tags/v0.11.0.tar.gz \
+    | tar xz --strip 1 -C /usr/share/novnc/utils/websockify
 
-# Generate SSL certificate
-RUN cd /usr/share/novnc/utils/ && openssl req -x509 -nodes -newkey rsa:2048 -keyout self.pem -out self.pem -days 365 -subj "/C=EU/ST=Croatia/L=Zagreb/O=IDKFA/CN=nutra.strpaj.ga"
+# Generate self-signed SSL certificate (HTTPS optional via port 6081)
+# CN is a wildcard for local access; override via -subj if behind a proxy
+RUN cd /usr/share/novnc/utils && \
+    openssl req -x509 -nodes -newkey rsa:2048 \
+        -keyout self.pem -out self.pem -days 365 \
+        -subj "/C=US/ST=Local/L=Local/O=Desktop/CN=localhost"
 
-# Create the necessary directories and device files
-RUN mkdir -p /tmp/.X11-unix && \
-    mknod -m 666 /dev/tty1 c 4 1 && \
-    ln -sf /dev/tty1 /dev/tty0
-
-# Create an empty .Xauthority file
+# Prepare X authority file
 RUN touch /root/.Xauthority
 
-# Copy Xdummy config file
-COPY xorg.conf /etc/X11/xorg.conf
-
-# # Set a default VNC password
-# RUN apt-get update && apt-get install -y x11vnc && \
-#     mkdir -p /root/.vnc && \
-#     x11vnc -storepasswd yourpassword /root/.vnc/passwd && \
-#     apt-get purge -y x11vnc && apt-get autoremove -y && apt-get clean
-
-# Set up the entrypoint script
+# Copy custom entrypoint and noVNC landing page
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Expose the necessary ports
+COPY index.html /usr/share/novnc/index.html
+
+# Expose noVNC (6080) and raw VNC (5901, only for debugging)
 EXPOSE 6080
 EXPOSE 5901
 
-# Start the entrypoint script
+# Healthcheck - verifies noVNC web UI responds
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:6080/ || exit 1
+
+# Run noVNC in foreground (keeps container alive)
 CMD ["/start.sh"]
