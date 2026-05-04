@@ -23,7 +23,19 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT
 
-# --- 1. Start Xvnc (TigerVNC) with dynamic resize support ---
+# --- 1. Setup VNC password (optional via VNC_PASSWORD env var) ---
+SECURITY_TYPE="-SecurityTypes None"
+if [ -n "${VNC_PASSWORD}" ]; then
+    mkdir -p /root/.vnc
+    echo "${VNC_PASSWORD}" | vncpasswd -f > /root/.vnc/passwd 2>/dev/null
+    chmod 600 /root/.vnc/passwd
+    SECURITY_TYPE="-rfbauth /root/.vnc/passwd"
+    echo "[start.sh] VNC password authentication enabled."
+else
+    echo "[start.sh] No VNC password set (open access)."
+fi
+
+# --- 2. Start Xvnc (TigerVNC) with dynamic resize support ---
 VNC_GEOMETRY="${VNC_RESOLUTION:-1920x1080}"
 VNC_DEPTH="${VNC_DEPTH:-24}"
 
@@ -31,11 +43,12 @@ echo "[start.sh] Starting Xvnc on ${VNC_GEOMETRY} ..."
 Xvnc :1 \
     -geometry "${VNC_GEOMETRY}" \
     -depth "${VNC_DEPTH}" \
-    -SecurityTypes None \
+    ${SECURITY_TYPE} \
     -auth /root/.Xauthority \
     -listen tcp \
     -rfbport 5901 \
-    -AcceptSetDesktopSize &
+    -AcceptSetDesktopSize \
+    -shared &
 XVNC_PID=$!
 disown $XVNC_PID
 
@@ -53,7 +66,7 @@ for i in $(seq 1 30); do
     sleep 0.5
 done
 
-# --- 2. Start XFCE desktop ---
+# --- 3. Start XFCE desktop ---
 echo "[start.sh] Starting XFCE4 ..."
 startxfce4 &
 disown
@@ -61,9 +74,7 @@ disown
 # Give XFCE a moment to initialize before noVNC starts
 sleep 2
 
-# --- 3. Start noVNC via websockify (foreground - keeps container alive) ---
-# noVNC v1.5.0 no longer has launch.sh. Use websockify directly:
-#   websockify.py --web <noVNC dir> <listen_port> <vnc_host:port>
+# --- 4. Start noVNC via websockify (foreground - keeps container alive) ---
 echo "[start.sh] Starting noVNC on port 6080 ..."
 export PYTHONPATH=/usr/share/novnc/utils/websockify
 exec python3 -m websockify \

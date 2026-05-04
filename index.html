@@ -85,6 +85,33 @@
             desktopName = e.detail.name;
         }
 
+        // ---- Clipboard support (bidirectional) ----
+        // When the remote desktop sends clipboard content, copy it to local clipboard
+        function clipboardReceivedFromServer(e) {
+            navigator.clipboard.writeText(e.detail.text).catch(() => {});
+        }
+
+        // Send local clipboard content to remote desktop
+        function sendLocalClipboard() {
+            if (!rfb) return;
+            navigator.clipboard.readText().then((text) => {
+                if (text && text !== window._lastSentClipboard) {
+                    window._lastSentClipboard = text;
+                    rfb.clipboardPasteFrom(text);
+                }
+            }).catch(() => {});
+        }
+
+        // Send on paste event (Ctrl+V / Cmd+V)
+        document.addEventListener('paste', (e) => {
+            sendLocalClipboard();
+        });
+
+        // Also send on copy event
+        document.addEventListener('copy', (e) => {
+            sendLocalClipboard();
+        });
+
         // ---- Keyboard shortcuts (exposed to window for button handlers) ----
         function sendCtrlAltDel() {
             if (rfb) rfb.sendCtrlAltDel();
@@ -125,12 +152,16 @@
             setupRFB();
         }
 
-        // ---- Setup RFB instance with auto-resize ----
+        // ---- Setup RFB instance with auto-resize & clipboard ----
         function setupRFB() {
             rfb.addEventListener("connect",  connectedToServer);
             rfb.addEventListener("disconnect", disconnectedFromServer);
             rfb.addEventListener("credentialsrequired", credentialsAreRequired);
             rfb.addEventListener("desktopname", updateDesktopName);
+            rfb.addEventListener("clipboard", clipboardReceivedFromServer);
+
+            // Enable clipboard sharing (bidirectional)
+            rfb.clipAutoPaste = true;
 
             // KEY SETTINGS for auto-resize:
             // scaleViewport=true  -> noVNC scales the canvas to fill available space
@@ -138,10 +169,6 @@
             //   (requires Xvnc -AcceptSetDesktopSize flag)
             rfb.scaleViewport = true;
             rfb.resizeSession = true;
-
-            // noVNC's built-in ResizeObserver will automatically send
-            // resize events to the server when the #screen div changes size.
-            // No extra window.resize listener needed.
         }
 
         // ---- Initialize ----

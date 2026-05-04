@@ -17,6 +17,10 @@ ENV BROWSER=/usr/bin/firefox-esr
 ENV VNC_RESOLUTION=1920x1080
 ENV VNC_DEPTH=24
 
+# Optional VNC password - set via docker run -e VNC_PASSWORD=yourpassword
+# If unset, the container has open access (no password)
+# ENV VNC_PASSWORD=yourpassword
+
 # Install noVNC (latest stable) and websockify
 RUN mkdir -p /usr/share/novnc/utils/websockify
 
