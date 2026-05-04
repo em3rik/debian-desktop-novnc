@@ -48,7 +48,7 @@ Xvnc :1 \
     -listen tcp \
     -rfbport 5901 \
     -AcceptSetDesktopSize \
-    -shared &
+    -AlwaysShared &
 XVNC_PID=$!
 disown $XVNC_PID
 
