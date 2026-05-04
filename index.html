@@ -32,15 +32,21 @@
             text-align: center;
             flex: 1;
         }
+        #icon_bar {
+            display: flex;
+            gap: 6px;
+        }
         .ctrl-btn {
             background: #444;
             color: #ddd;
             border: 1px solid #555;
             padding: 3px 8px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 14px;
             border-radius: 3px;
-            white-space: nowrap;
+            line-height: 1;
+            min-width: 28px;
+            text-align: center;
         }
         .ctrl-btn:hover { background: #555; }
         #screen {
@@ -61,6 +67,7 @@
 
         let rfb;
         let desktopName;
+        let clipboardOpen = false;
 
         // ---- Connection callbacks ----
         function connectedToServer(e) {
@@ -86,33 +93,37 @@
         }
 
         // ---- Clipboard support (bidirectional) ----
-        // When the remote desktop sends clipboard content, copy it to local clipboard
         function clipboardReceivedFromServer(e) {
             navigator.clipboard.writeText(e.detail.text).catch(() => {});
         }
 
-        // Send local clipboard content to remote desktop
-        function sendLocalClipboard() {
+        function sendLocalClipboardToRemote() {
             if (!rfb) return;
             navigator.clipboard.readText().then((text) => {
                 if (text && text !== window._lastSentClipboard) {
                     window._lastSentClipboard = text;
                     rfb.clipboardPasteFrom(text);
+                    status("Clipboard synced -> remote");
                 }
             }).catch(() => {});
         }
 
-        // Send on paste event (Ctrl+V / Cmd+V)
-        document.addEventListener('paste', (e) => {
-            sendLocalClipboard();
-        });
+        document.addEventListener('paste', sendLocalClipboardToRemote);
+        document.addEventListener('copy', sendLocalClipboardToRemote);
 
-        // Also send on copy event
-        document.addEventListener('copy', (e) => {
-            sendLocalClipboard();
-        });
+        // ---- Toggle clipboard button (icon-style) ----
+        function toggleClipboard() {
+            clipboardOpen = !clipboardOpen;
+            const btn = document.getElementById('clipBtn');
+            btn.textContent = clipboardOpen ? '\u2705' : '\u2702\ufe0f';
+            if (clipboardOpen) {
+                sendLocalClipboardToRemote();
+                status("Clipboard: synced");
+            }
+        }
+        window.toggleClipboard = toggleClipboard;
 
-        // ---- Keyboard shortcuts (exposed to window for button handlers) ----
+        // ---- Keyboard shortcuts ----
         function sendCtrlAltDel() {
             if (rfb) rfb.sendCtrlAltDel();
         }
@@ -126,6 +137,13 @@
             }
         }
         window.toggleFullscreen = toggleFullscreen;
+
+        // ---- Power/Disconnect ----
+        function sendPowerOff() {
+            if (rfb) rfb.sendCtrlAltDel();
+            status("Disconnecting...");
+        }
+        window.sendPowerOff = sendPowerOff;
 
         // ---- Status bar ----
         function status(text) {
@@ -159,14 +177,7 @@
             rfb.addEventListener("credentialsrequired", credentialsAreRequired);
             rfb.addEventListener("desktopname", updateDesktopName);
             rfb.addEventListener("clipboard", clipboardReceivedFromServer);
-
-            // Enable clipboard sharing (bidirectional)
             rfb.clipAutoPaste = true;
-
-            // KEY SETTINGS for auto-resize:
-            // scaleViewport=true  -> noVNC scales the canvas to fill available space
-            // resizeSession=true  -> noVNC sends desktopsize events to Xvnc server
-            //   (requires Xvnc -AcceptSetDesktopSize flag)
             rfb.scaleViewport = true;
             rfb.resizeSession = true;
         }
@@ -199,17 +210,27 @@
 
 <body>
     <div id="top_bar">
-        <button class="ctrl-btn" id="cadBtn">Ctrl+Alt+Del</button>
         <div id="status">Loading</div>
-        <button class="ctrl-btn" id="fsBtn">Fullscreen</button>
+        <div id="icon_bar">
+            <button class="ctrl-btn" id="clipBtn" title="Sync Clipboard">&#128202;&#128467;</button>
+            <button class="ctrl-btn" id="cadBtn" title="Ctrl+Alt+Del">&#8634;</button>
+            <button class="ctrl-btn" id="fsBtn" title="Fullscreen">&#9744;</button>
+            <button class="ctrl-btn" id="powerBtn" title="Power">&#9889;</button>
+        </div>
     </div>
     <div id="screen"></div>
     <script>
+        document.getElementById('clipBtn').onclick = function() {
+            if (window.toggleClipboard) window.toggleClipboard();
+        };
         document.getElementById('cadBtn').onclick = function() {
             if (window.sendCtrlAltDel) window.sendCtrlAltDel();
         };
         document.getElementById('fsBtn').onclick = function() {
             if (window.toggleFullscreen) window.toggleFullscreen();
+        };
+        document.getElementById('powerBtn').onclick = function() {
+            if (window.sendPowerOff) window.sendPowerOff();
         };
     </script>
 </body>
