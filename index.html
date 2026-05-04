@@ -103,13 +103,18 @@
                 if (text && text !== window._lastSentClipboard) {
                     window._lastSentClipboard = text;
                     rfb.clipboardPasteFrom(text);
-                    status("Clipboard synced -> remote");
                 }
             }).catch(() => {});
         }
 
-        document.addEventListener('paste', sendLocalClipboardToRemote);
-        document.addEventListener('copy', sendLocalClipboardToRemote);
+        // Background poll: detect host clipboard changes every 1.5s and send to remote.
+        // This is necessary because noVNC captures all keyboard events so
+        // document.addEventListener('copy') never fires when the canvas has focus.
+        let clipboardPoll = null;
+        function startClipboardPoll() {
+            if (clipboardPoll) clearInterval(clipboardPoll);
+            clipboardPoll = setInterval(sendLocalClipboardToRemote, 1500);
+        }
 
         // ---- Toggle clipboard button (icon-style) ----
         function toggleClipboard() {
@@ -118,7 +123,12 @@
             btn.textContent = clipboardOpen ? '\u2705' : '\u2702\ufe0f';
             if (clipboardOpen) {
                 sendLocalClipboardToRemote();
-                status("Clipboard: synced");
+                startClipboardPoll();
+                status("Clipboard: polling enabled");
+            } else {
+                clearInterval(clipboardPoll);
+                clipboardPoll = null;
+                status("Clipboard: paused");
             }
         }
         window.toggleClipboard = toggleClipboard;
