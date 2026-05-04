@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     tigervnc-standalone-server \
     dbus-x11 python3 \
     firefox-esr chromium \
-    lsof htop \
+    lsof htop diodon xclip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Default browser override via env var
@@ -43,15 +43,16 @@ RUN touch /root/.Xauthority
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
+# index.html redirects to default noVNC UI with auto-resize + auto-connect
 COPY index.html /usr/share/novnc/index.html
 
 # Expose noVNC (6080) and raw VNC (5901, only for debugging)
 EXPOSE 6080
 EXPOSE 5901
 
-# Healthcheck - verifies noVNC web UI responds
+# Healthcheck - verifies noVNC web UI responds (HTTPS with self-signed cert)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:6080/ || exit 1
+    CMD curl -fk https://localhost:6080/ || exit 1
 
 # Run noVNC in foreground (keeps container alive)
 CMD ["/start.sh"]

@@ -7,7 +7,7 @@
 export DISPLAY=:1
 
 # Cleanup any leftover X lock on display :1
-rm -f /tmp/.X11-unix/X1
+rm -f /tmp/.X11-unix/X1 /tmp/.X1-lock /tmp/.X11-unix/X1-lock
 
 # Signal handling - graceful shutdown on docker stop
 cleanup() {
@@ -74,9 +74,16 @@ disown
 # Give XFCE a moment to initialize before noVNC starts
 sleep 2
 
+# Start clipboard manager for bidirectional clipboard to work
+# diodon keeps the X11 clipboard buffer alive when no app is actively holding it
+echo "[start.sh] Starting clipboard manager..."
+diodon &
+disown
+
 # --- 4. Start noVNC via websockify (foreground - keeps container alive) ---
-echo "[start.sh] Starting noVNC on port 6080 ..."
+echo "[start.sh] Starting noVNC on port 6080 (HTTPS with self-signed cert) ..."
 export PYTHONPATH=/usr/share/novnc/utils/websockify
 exec python3 -m websockify \
     --web /usr/share/novnc \
+    --cert /usr/share/novnc/utils/self.pem \
     6080 localhost:5901
