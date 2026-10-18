@@ -1,5 +1,5 @@
 ### debian-desktop-novnc
-Debian Slim based Docker image with a minimal XFCE session, noVNC (v1.7.0) and Chromium.
+Debian Slim based Docker image with a minimal XFCE session, noVNC (v1.7.0), Firefox ESR and Chromium.
 
 ### Build the docker image
 ```
@@ -23,7 +23,7 @@ warning you need to accept.
 | VNC_RESOLUTION | 1920x1080 | Starting desktop resolution (the browser sends real desktop-size events on resize, so this is just the initial size) |
 | VNC_DEPTH | 24 | Color depth |
 | VNC_PASSWORD | (unset) | If set, VNC requires password auth. If unset, the desktop is open access - set it on any non-localhost bind. |
-| BROWSER | /usr/bin/chromium | Default browser used by the desktop |
+| BROWSER | /usr/bin/firefox-esr | Default browser used by the desktop (chromium also installed) |
 
 Example with a password:
 ```

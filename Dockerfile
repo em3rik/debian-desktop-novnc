@@ -1,6 +1,7 @@
 FROM debian:stable-slim
 
-# Install a minimal XFCE session, TigerVNC, websockify deps, and Chromium.
+# Install a minimal XFCE session, TigerVNC, websockify deps, and both
+# Firefox ESR (default) and Chromium.
 # --no-install-recommends keeps the image small; XFCE components are listed
 # explicitly instead of pulling the xfce4 meta-package recommends tree.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,12 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 x11-utils xfonts-base fonts-liberation \
     tigervnc-standalone-server tigervnc-tools \
     curl wget procps net-tools openssl python3 ca-certificates \
-    chromium \
+    firefox-esr chromium xdg-utils \
     lsof htop diodon xclip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Default browser override via env var
-ENV BROWSER=/usr/bin/chromium
+# Default browser override via env var (chromium also installed)
+ENV BROWSER=/usr/bin/firefox-esr
 
 # VNC starting resolution (changeable at runtime via resize=remote)
 ENV VNC_RESOLUTION=1920x1080
