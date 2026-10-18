@@ -9,7 +9,9 @@ export DISPLAY=:1
 # Cleanup any leftover X lock on display :1
 rm -f /tmp/.X11-unix/X1 /tmp/.X1-lock /tmp/.X11-unix/X1-lock
 
-# Signal handling - graceful shutdown on docker stop
+# Signal handling - graceful shutdown on docker stop (covers the startup
+# phase; after exec, websockify is PID 1 and its exit tears down the
+# container, which kills the remaining processes)
 cleanup() {
     echo "[start.sh] Shutting down..."
     pkill -TERM xfce4-session 2>/dev/null || true
@@ -27,7 +29,14 @@ trap cleanup SIGTERM SIGINT
 SECURITY_TYPE="-SecurityTypes None"
 if [ -n "${VNC_PASSWORD}" ]; then
     mkdir -p /root/.vnc
-    echo "${VNC_PASSWORD}" | vncpasswd -f > /root/.vnc/passwd 2>/dev/null
+    if ! echo "${VNC_PASSWORD}" | vncpasswd -f > /root/.vnc/passwd; then
+        echo "[start.sh] ERROR: vncpasswd failed - refusing to start with broken auth."
+        exit 1
+    fi
+    if [ ! -s /root/.vnc/passwd ]; then
+        echo "[start.sh] ERROR: vncpasswd produced an empty file - refusing to start."
+        exit 1
+    fi
     chmod 600 /root/.vnc/passwd
     SECURITY_TYPE="-rfbauth /root/.vnc/passwd"
     echo "[start.sh] VNC password authentication enabled."
@@ -80,10 +89,23 @@ echo "[start.sh] Starting clipboard manager..."
 diodon &
 disown
 
-# --- 4. Start noVNC via websockify (foreground - keeps container alive) ---
+# --- 4. Ensure TLS certificate exists (generated at first start, not baked
+#        into the image, so the private key never ships in an image layer) ---
+CERT=/usr/share/novnc/utils/self.pem
+if [ ! -f "${CERT}" ]; then
+    echo "[start.sh] Generating self-signed TLS certificate ..."
+    if ! openssl req -x509 -nodes -newkey rsa:2048 \
+        -keyout "${CERT}" -out "${CERT}" -days 365 \
+        -subj "/C=US/ST=Local/L=Local/O=Desktop/CN=localhost"; then
+        echo "[start.sh] ERROR: certificate generation failed."
+        exit 1
+    fi
+fi
+
+# --- 5. Start noVNC via websockify (foreground - keeps container alive) ---
 echo "[start.sh] Starting noVNC on port 6080 (HTTPS with self-signed cert) ..."
 export PYTHONPATH=/usr/share/novnc/utils/websockify
 exec python3 -m websockify \
     --web /usr/share/novnc \
-    --cert /usr/share/novnc/utils/self.pem \
+    --cert "${CERT}" \
     6080 localhost:5901
