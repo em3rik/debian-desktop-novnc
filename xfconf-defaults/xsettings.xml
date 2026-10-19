@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- System-wide XFCE defaults. xfconfd uses these whenever the user channel
+     (~/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml) has no value,
+     so a fresh home gets Nimbus Sans and a deliberate user change still wins.
+     Net/DefaultFont drives GTK UI text and xfwm4 titlebars. -->
+<channel name="xsettings" version="1.0">
+  <property name="Net/DefaultFont" type="string" value="Nimbus Sans 10"/>
+</channel>
