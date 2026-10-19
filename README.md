@@ -30,6 +30,25 @@ Example with a password:
 sudo docker run -d -p 6080:6080 -e VNC_PASSWORD=choose-one debian-slim-xfce-novnc-image
 ```
 
+### Fonts
+Default UI font is **Nimbus Sans 10** - URW's Helvetica-metric clone
+(`fonts-urw-base35`), set as an xfconf system-wide default
+(`/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml`), so a fresh home
+picks it up and a user override via *Settings > Appearance* still wins.
+
+Because the image uses `--no-install-recommends`, font packages must be
+listed explicitly in the Dockerfile. `fonts-dejavu-core` is load-bearing:
+without it, fontconfig resolves the generic `Sans`/`sans-serif` to
+Liberation **Mono** and the entire desktop renders monospaced.
+Installed: `fonts-urw-base35` (Nimbus Sans/Ra/Pa...), `fonts-dejavu-core`
+(generic sans/mono), `fonts-liberation` (Arial/Times/Courier metrics for
+documents), `xfonts-base` (X11 core bitmaps).
+
+### Network tools
+`ping`, `host`, `dig`, `nslookup` are installed (`iputils-ping`,
+`bind9-dnsutils`) - both were Recommends-only casualties of
+`--no-install-recommends` and are needed for in-desktop debugging.
+
 ### Debugging
 The desktop is served over HTTPS on 6080 (noVNC + websockify). Raw VNC
 (5901) is intentionally **not** published - it has no TLS and its password

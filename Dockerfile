@@ -4,14 +4,30 @@ FROM debian:stable-slim
 # Firefox ESR (default) and Chromium.
 # --no-install-recommends keeps the image small; XFCE components are listed
 # explicitly instead of pulling the xfce4 meta-package recommends tree.
+#
+# Fonts MUST be listed explicitly: the xfce4 recommends tree used to deliver
+# fonts-dejavu-core, and without it fontconfig resolves the generic
+# "Sans"/"sans-serif" to Liberation MONO (verified on a pristine container),
+# rendering the whole desktop monospaced. fonts-urw-base35 provides Nimbus
+# Sans, URW's Helvetica-metric clone, used as the default UI font below.
+#
+# iputils-ping + bind9-dnsutils: ping / host / dig / nslookup were also
+# Recommends-only casualties and are needed for in-desktop network debugging.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4-session xfce4-settings xfwm4 xfdesktop4 xfce4-panel xfce4-terminal thunar \
-    dbus-x11 x11-utils xfonts-base fonts-liberation \
+    dbus-x11 x11-utils xfonts-base fonts-liberation fonts-dejavu-core fonts-urw-base35 \
     tigervnc-standalone-server tigervnc-tools \
     curl wget procps net-tools openssl python3 ca-certificates \
+    iputils-ping bind9-dnsutils \
     firefox-esr chromium xdg-utils \
     lsof htop diodon xclip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Default UI font: Nimbus Sans (Helvetica clone) for GTK UI + xfwm4 titlebars.
+# Shipped as an xfconf SYSTEM-WIDE default: xfconfd falls back to
+# /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/ whenever the user channel has no
+# value, so a fresh home picks it up and a deliberate user override still wins.
+COPY xfconf-defaults/xsettings.xml /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
 
 # Default browser override via env var (chromium also installed)
 ENV BROWSER=/usr/bin/firefox-esr
